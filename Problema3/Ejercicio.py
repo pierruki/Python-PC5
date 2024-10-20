@@ -1,60 +1,46 @@
 import pandas as pd
-
-# Ruta del archivo descomprimido
-file_path = 'ruta_a_los_datos.txt'
-
-# Leer los datos, el separador es '\t' (tabulador), y no hay encabezados
-df_youtube = pd.read_csv(file_path, sep='\t', header=None)
-
-# Asignar nombres a las columnas (basado en la descripción proporcionada)
-df_youtube.columns = ['VideoID', 'uploader', 'age', 'category', 'length', 'views', 'rate', 'ratings', 'comments', 'relatedIDs']
-
-# Mostrar las primeras 5 filas para verificar los datos
-print(df_youtube.head())
-
-# Seleccionar las columnas que vamos a usar: VideoID, edad, categoria, views, rate
-df_filtered = df_youtube[['VideoID', 'age', 'category', 'views', 'rate']]
-
-# Mostrar las primeras 5 filas del DataFrame filtrado
-print(df_filtered.head())
-
-# Filtrar el DataFrame para seleccionar solo las filas con una categoría específica (ejemplo: 'Music')
-df_music = df_filtered[df_filtered['category'] == 'Music']
-
-# Mostrar las primeras 5 filas del DataFrame filtrado
-print(df_music.head())
-
+import os
 from pymongo import MongoClient
 
-# Conectarse a MongoDB
-client = MongoClient('localhost', 27017)
+# Ruta de la carpeta donde están los archivos
+folder_path = './data/0303'
 
-# Crear una base de datos y una colección
-db = client['youtube_data']
-collection = db['videos']
+# Obtener la lista de archivos de texto relevantes (excluir log.txt)
+files = [f for f in os.listdir(folder_path) if f.endswith('.txt') and f != 'log.txt']
 
-# Convertir el DataFrame filtrado a un diccionario para poder insertarlo en MongoDB
-data_dict = df_filtered.to_dict('records')
+# Lista para almacenar cada DataFrame
+df_list = []
 
-# Insertar los datos en la colección
-collection.insert_many(data_dict)
+# Leer y combinar los archivos de texto
+for file in files:
+    file_path = os.path.join(folder_path, file)
+    df = pd.read_csv(file_path, sep='\t', header=None)  # Lee el archivo sin encabezados
+    df_list.append(df)
 
-print("Datos exportados a MongoDB.")
+# Concatenar todos los DataFrames en uno solo
+df_youtube = pd.concat(df_list, ignore_index=True)
 
-import matplotlib.pyplot as plt
-import seaborn as sns
+# Verificar el número de columnas en los datos
+print(f"Número de columnas en el archivo: {df_youtube.shape[1]}")
 
-# Gráfico 1: Distribución de visualizaciones (views) por categoría
-plt.figure(figsize=(10, 6))
-sns.boxplot(x='category', y='views', data=df_filtered)
-plt.title('Distribución de visualizaciones por categoría')
-plt.xticks(rotation=90)
-plt.show()
+# Mostrar las primeras filas para ver todas las columnas
+print(df_youtube.head())
 
-# Gráfico 2: Relación entre la edad del video y la tasa de calificación (rate)
-plt.figure(figsize=(10, 6))
-plt.scatter(df_filtered['age'], df_filtered['rate'])
-plt.title('Relación entre la edad del video y la tasa de calificación')
-plt.xlabel('Edad del video (días)')
-plt.ylabel('Tasa de calificación')
-plt.show()
+# Quedarse solo con las columnas que necesitamos
+df_relevant = df_youtube[[0, 2, 3, 6, 7]]  # Ajustar si es necesario a la estructura de tu archivo
+df_relevant.columns = ['VideoID', 'age', 'category', 'views', 'rate']
+
+# Mostrar las primeras filas con las columnas seleccionadas
+print(df_relevant.head())
+
+# Conectar a MongoDB
+client = MongoClient("mongodb+srv://Pieronanezdiaz:QXb-S%40L*-7Si46*@cluster0.fsp84.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+db = client['PythonPC5']
+collection = db['Grafica_3']
+
+# Insertar los datos filtrados en MongoDB
+data_to_insert = df_relevant.to_dict(orient='records')
+result = collection.insert_many(data_to_insert)
+
+# Mostrar mensaje de éxito
+print("Impresión exitosa")
